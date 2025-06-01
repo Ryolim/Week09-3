@@ -51,6 +51,51 @@ class StudentViewModel : ViewModel() {
             }
     }
 
+    fun deleteStudent(student: Student) {
+        db.collection("students").document(student.docId)
+            .delete()
+            .addOnSuccessListener {
+                Log.d("Firestore", "Student deleted")
+                fetchStudents()
+            }
+            .addOnFailureListener {
+                Log.e("Firestore", "Error deleting student", it)}
+    }
+    fun updateStudent(student: Student) {
+        val studentMap = mapOf(
+            "id" to student.id,
+            "name" to student.name,
+            "program" to student.program
+        )
+        val studentDocRef = db.collection("students").document(student.docId)
+        studentDocRef.set(studentMap)
+            .addOnSuccessListener {
+                val phonesRef = studentDocRef.collection("phones")
+// Step 1: Delete old phones
+                phonesRef.get().addOnSuccessListener { snapshot ->
+                    val deleteTasks = snapshot.documents.map {
+                        it.reference.delete() }
+// Step 2: When all phones deleted, add new phones
+                    com.google.android.gms.tasks.Tasks.whenAllComplete(deleteTasks)
+                        .addOnSuccessListener {
+                            val addPhoneTasks = student.phones.map { phone ->
+                                val phoneMap = mapOf("number" to phone)
+                                phonesRef.add(phoneMap)
+                            }
+// Step 3: After all new phones added, fetch
+                            updated list
+                                    com.google.android.gms.tasks.Tasks.whenAllComplete(addPhoneTasks)
+                                        .addOnSuccessListener {
+                                            fetchStudents()
+                                        }
+                        }
+                }
+            }
+            .addOnFailureListener { e ->
+                Log.w("Firestore", "Error updating student", e)
+            }
+    }
+
     private fun fetchStudents() {
         db.collection("students")
             .get()
